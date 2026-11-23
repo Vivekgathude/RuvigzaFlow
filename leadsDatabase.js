@@ -46,8 +46,14 @@ function mapLead(row) {
     closeFromDate: row.close_from_date || "",
     closeToDate: row.close_to_date || "",
     closeRemark: row.close_remark || "",
+
+    contactPoint: row.contact_point || "",
+    contactEvidencePath: row.contact_evidence_path || "",
+    contactEvidenceName: row.contact_evidence_name || "",
+    contactEvidenceType: row.contact_evidence_type || "",
   };
 }
+
 
 
 // =====================================================
@@ -237,6 +243,25 @@ export async function updateLead(id, updates) {
       updates.pincode || null;
   }
 
+
+  if ("contactPoint" in updates) {
+  payload.contact_point = updates.contactPoint;
+}
+
+if ("contactEvidencePath" in updates) {
+  payload.contact_evidence_path =
+    updates.contactEvidencePath;
+}
+
+if ("contactEvidenceName" in updates) {
+  payload.contact_evidence_name =
+    updates.contactEvidenceName;
+}
+
+if ("contactEvidenceType" in updates) {
+  payload.contact_evidence_type =
+    updates.contactEvidenceType;
+}
 
   // ===================================================
   // Package

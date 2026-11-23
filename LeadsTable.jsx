@@ -1,5 +1,8 @@
 import React, { useMemo, useState } from "react";
-import { Search, Trash2, ExternalLink } from "lucide-react";
+import { Search, Trash2, ExternalLink, Image as ImageIcon,
+  FileAudio,
+  X, } from "lucide-react";
+import { supabase } from "./supabase";
 import { C, STATUS_COLOR, Panel, EmptyNote, inputStyle } from "./ui";
 import { STATUS_OPTIONS } from "./excelUtils";
 
@@ -70,6 +73,48 @@ export default function LeadsTable({
     );
   }, [employees]);
 
+
+  // =========================================================
+// CONTACT EVIDENCE PREVIEW
+// =========================================================
+const [evidenceModal, setEvidenceModal] = useState(null);
+const [evidenceLoadingId, setEvidenceLoadingId] = useState(null);
+const [evidenceError, setEvidenceError] = useState("");
+
+const handleOpenEvidence = async (lead) => {
+  if (!lead.contactEvidencePath) {
+    setEvidenceError("Evidence file path उपलब्ध नाही.");
+    return;
+  }
+
+  setEvidenceLoadingId(lead.id);
+  setEvidenceError("");
+
+  try {
+    const { data, error } = await supabase.storage
+      .from("contact-evidence")
+      .createSignedUrl(lead.contactEvidencePath, 300);
+
+    if (error) throw error;
+
+    if (!data?.signedUrl) {
+      throw new Error("Evidence URL तयार करता आला नाही.");
+    }
+
+    setEvidenceModal({
+      url: data.signedUrl,
+      name: lead.contactEvidenceName || "Contact evidence",
+      type: lead.contactEvidenceType || "",
+    });
+  } catch (error) {
+    console.error("Open contact evidence error:", error);
+    setEvidenceError(
+      error.message || "Evidence उघडताना समस्या आली."
+    );
+  } finally {
+    setEvidenceLoadingId(null);
+  }
+};
   // =========================================================
   // FILTERED LEADS
   // =========================================================
@@ -285,6 +330,7 @@ export default function LeadsTable({
                     "Package",
                     canReassign ? "Assigned to" : null,
                     "Updated",
+                    "Evidence",
                     canDelete ? "" : null,
                   ]
                     .filter(Boolean)
@@ -733,6 +779,87 @@ export default function LeadsTable({
                       {fmtDate(l.updatedAt)}
                     </td>
 
+                    {/* ================= EVIDENCE ================= */}
+<td
+  style={{
+    padding: "9px 8px",
+    textAlign: "center",
+    whiteSpace: "nowrap",
+  }}
+>
+  {l.contactEvidencePath &&
+  l.contactEvidenceType?.startsWith("image/") ? (
+    <button
+      type="button"
+      onClick={() => handleOpenEvidence(l)}
+      disabled={evidenceLoadingId === l.id}
+      title={
+        l.contactEvidenceName
+          ? `View image: ${l.contactEvidenceName}`
+          : "View uploaded image"
+      }
+      aria-label="View contact evidence image"
+      style={{
+        border: "none",
+        background: "transparent",
+        color: C.primary,
+        cursor:
+          evidenceLoadingId === l.id
+            ? "wait"
+            : "pointer",
+        padding: 5,
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      <ImageIcon size={18} />
+    </button>
+  ) : l.contactEvidencePath &&
+    l.contactEvidenceType?.startsWith("audio/") ? (
+    <button
+      type="button"
+      onClick={() => handleOpenEvidence(l)}
+      disabled={evidenceLoadingId === l.id}
+      title={
+        l.contactEvidenceName
+          ? `Play audio: ${l.contactEvidenceName}`
+          : "Play call recording"
+      }
+      aria-label="Play contact evidence audio"
+      style={{
+        border: "none",
+        background: "transparent",
+        color: C.primary,
+        cursor:
+          evidenceLoadingId === l.id
+            ? "wait"
+            : "pointer",
+        padding: 5,
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      <FileAudio size={18} />
+    </button>
+  ) : (
+    <span style={{ color: C.inkFaint }}>—</span>
+  )}
+
+  {evidenceLoadingId === l.id && (
+    <span
+      style={{
+        marginLeft: 5,
+        fontSize: 11,
+        color: C.inkFaint,
+      }}
+    >
+      Loading...
+    </span>
+  )}
+</td>
+
                     {/* ================= DELETE ================= */}
                     {canDelete && (
                       <td
@@ -762,6 +889,140 @@ export default function LeadsTable({
           </div>
         )}
       </Panel>
+
+      {/* =====================================================
+    CONTACT EVIDENCE PREVIEW MODAL
+===================================================== */}
+
+{evidenceError && (
+  <div
+    role="alert"
+    style={{
+      marginTop: 10,
+      padding: 10,
+      borderRadius: 6,
+      color: "#b91c1c",
+      background: "#fee2e2",
+      fontSize: 13,
+    }}
+  >
+    {evidenceError}
+
+    <button
+      type="button"
+      onClick={() => setEvidenceError("")}
+      style={{
+        marginLeft: 10,
+        border: "none",
+        background: "transparent",
+        cursor: "pointer",
+        color: "inherit",
+      }}
+    >
+      Dismiss
+    </button>
+  </div>
+)}
+
+{evidenceModal && (
+  <div
+    onClick={() => setEvidenceModal(null)}
+    style={{
+      position: "fixed",
+      inset: 0,
+      zIndex: 10000,
+      background: "rgba(0, 0, 0, 0.75)",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      padding: 16,
+    }}
+  >
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Contact evidence preview"
+      onClick={(e) => e.stopPropagation()}
+      style={{
+        width: "100%",
+        maxWidth: 650,
+        maxHeight: "90vh",
+        overflowY: "auto",
+        background: C.panel || "#ffffff",
+        color: C.ink,
+        borderRadius: 12,
+        padding: 20,
+        boxSizing: "border-box",
+        boxShadow: "0 20px 60px rgba(0,0,0,0.3)",
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 12,
+          marginBottom: 16,
+        }}
+      >
+        <div
+          style={{
+            fontSize: 15,
+            fontWeight: 600,
+            overflowWrap: "anywhere",
+          }}
+        >
+          {evidenceModal.name}
+        </div>
+
+        <button
+          type="button"
+          onClick={() => setEvidenceModal(null)}
+          aria-label="Close evidence preview"
+          style={{
+            border: "none",
+            background: "transparent",
+            color: "inherit",
+            cursor: "pointer",
+            padding: 5,
+            flexShrink: 0,
+          }}
+        >
+          <X size={20} />
+        </button>
+      </div>
+
+      {evidenceModal.type.startsWith("image/") ? (
+        <img
+          src={evidenceModal.url}
+          alt={evidenceModal.name}
+          style={{
+            display: "block",
+            width: "100%",
+            maxHeight: "70vh",
+            objectFit: "contain",
+            borderRadius: 6,
+          }}
+        />
+      ) : evidenceModal.type.startsWith("audio/") ? (
+        <div style={{ padding: "16px 0" }}>
+          <audio
+            controls
+            autoPlay
+            preload="metadata"
+            src={evidenceModal.url}
+            style={{ width: "100%" }}
+          >
+            तुमचा browser audio playback support करत नाही.
+          </audio>
+        </div>
+      ) : (
+        <p>या file type साठी preview उपलब्ध नाही.</p>
+      )}
+    </div>
+  </div>
+)}
+
 
       {/* =====================================================
           RESPONSIVE TOOLBAR

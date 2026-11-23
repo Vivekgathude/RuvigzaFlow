@@ -34,9 +34,15 @@ import {
 import EmployeeMonthlyTimesheet from "./EmployeeMonthlyTimesheet";
 
 import logo from "./assets/ruvigza-logo.png";
+import EmployeeLeavesPage from "./EmployeeLeavesPage";
+import ProfilePicture from "./ProfilePicture";
 
 export default function EmployeeView() {
-  const { currentUser, logout } = useAuth();
+  const {
+  currentUser,
+  logout,
+  refreshCurrentUser,
+} = useAuth();
 
   const [view, setView] = useState("dashboard");
   const [leads, setLeads] = useState([]);
@@ -46,6 +52,7 @@ export default function EmployeeView() {
   const [attendanceLoading, setAttendanceLoading] = useState(false);
   const [mobileMenu, setMobileMenu] = useState(false);
   const [liveWorkingSeconds, setLiveWorkingSeconds] = useState(0);
+  
 
   // =====================================================
   // CLOSE NOTE STATE
@@ -700,6 +707,11 @@ export default function EmployeeView() {
       label: "Timesheet",
       icon: Clock,
     },
+    {
+      id: "leaves",
+      label: "Leaves",
+      icon: CalendarDays,
+    },
   ];
 
   const selectView = (id) => {
@@ -952,63 +964,44 @@ export default function EmployeeView() {
 
         {/* EMPLOYEE PROFILE */}
 
+        
+        {/* EMPLOYEE PROFILE */}
+
         <div
           style={{
-            padding:
-              "14px 12px",
-            borderTop:
-              "1px solid rgba(255,255,255,0.06)",
+            padding: "12px",
+            borderTop: "1px solid rgba(255,255,255,0.06)",
           }}
         >
+          {/* PROFILE PHOTO + NAME */}
+
           <div
             style={{
               display: "flex",
               alignItems: "center",
               gap: 10,
-              padding:
-                "8px 10px",
+              padding: "8px 10px",
               marginBottom: 5,
             }}
           >
-            <div
-              style={{
-                width: 34,
-                height: 34,
-                borderRadius: "50%",
-                background:
-                  "#1E293B",
-                display: "flex",
-                alignItems: "center",
-                justifyContent:
-                  "center",
-                flexShrink: 0,
-              }}
-            >
-              <User
-                size={17}
-                color="#CBD5E1"
-              />
-            </div>
+            <ProfilePicture
+              size={38}
+              editable={true}
+              onUpdated={refreshCurrentUser}
+            />
 
-            <div
-              style={{
-                minWidth: 0,
-              }}
-            >
+            <div style={{ minWidth: 0, flex: 1 }}>
               <div
                 style={{
                   fontSize: 13,
                   fontWeight: 600,
                   color: "#00A8FF",
                   overflow: "hidden",
-                  textOverflow:
-                    "ellipsis",
-                  whiteSpace:
-                    "nowrap",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
                 }}
               >
-                {currentUser?.name ||
-                  "Employee"}
+                {currentUser?.name || "Employee"}
               </div>
 
               <div
@@ -1023,19 +1016,20 @@ export default function EmployeeView() {
             </div>
           </div>
 
+          {/* LOGOUT BUTTON */}
+
           <button
+            type="button"
             onClick={logout}
             style={{
               width: "100%",
               display: "flex",
               alignItems: "center",
               gap: 10,
-              padding:
-                "10px 12px",
+              padding: "10px 12px",
               borderRadius: 7,
               border: "none",
-              background:
-                "transparent",
+              background: "transparent",
               color: "#94A3B8",
               fontSize: 13,
               cursor: "pointer",
@@ -1046,6 +1040,7 @@ export default function EmployeeView() {
             Log out
           </button>
         </div>
+
       </aside>
 
       {/* =================================================
@@ -1957,6 +1952,14 @@ export default function EmployeeView() {
             />
           </>
         )}
+
+        {/* =================================================
+            LEAVES PLACEHOLDER
+        ================================================= */}
+
+        {view === "leaves" && (
+            <EmployeeLeavesPage currentUser={currentUser} />
+        )}
       </main>
 
       {/* =================================================
@@ -2264,11 +2267,6 @@ export default function EmployeeView() {
                     <option value="Meta Ads">
                       Meta Ads
                     </option>
-
-                    <option value="Website">
-                      Website
-                    </option>
-                  
                   </select>
                 </div>
 

@@ -1,3 +1,4 @@
+
 import React, {
   useState,
   useEffect,
@@ -18,6 +19,7 @@ import {
   FileBarChart,
   CircleDollarSign,
   ChevronDown,
+  CalendarDays,
 } from "lucide-react";
 
 import { useAuth } from "./AuthContext";
@@ -33,6 +35,8 @@ import ClosedLeads from "./ClosedLeads";
 import MetaAdsReports from "./MetaAdsReports";
 import GoogleAdsReports from "./GoogleAdsReports";
 import RevenueDashboard from "./RevenueDashboard";
+import AdminLeaveRequestsPage from "./AdminLeaveRequestsPage";
+import ProfilePicture from "./ProfilePicture";
 
 import {
   getAllLeads,
@@ -48,7 +52,11 @@ import { supabase } from "./supabase";
 import logo from "./assets/ruvigza-logo.png";
 
 export default function AdminView() {
-  const { currentUser, logout } = useAuth();
+  const {
+  currentUser,
+  refreshCurrentUser,
+  logout,
+} = useAuth();
 
   // ---------------------------------------------------------
   // VIEW STATE
@@ -59,7 +67,7 @@ export default function AdminView() {
   // Existing Reports state
   const [reportsOpen, setReportsOpen] = useState(false);
 
-  // New collapsible section states
+  // Existing collapsible section states
   const [clientManagementOpen, setClientManagementOpen] =
     useState(false);
 
@@ -157,45 +165,36 @@ export default function AdminView() {
             (roles || []).find(
               (role) =>
                 Number(role.id) ===
-                Number(
-                  member.employment_role_id
-                )
+                Number(member.employment_role_id)
             );
 
-          return {
-            id: member.id,
+          
+return {
+  id: member.id,
+  name: member.name,
+  username: member.email,
+  email: member.email,
+  phone: member.phone,
+  role: "employee",
 
-            name: member.name,
+  // Employee profile picture
+  profilePicturePath: member.profile_picture_path || null,
+  authUserId: member.auth_user_id,
 
-            username: member.email,
+  employmentType: member.employment_type,
+  employmentRoleId: member.employment_role_id,
+  employmentRoleName: employmentRole?.name || "",
 
-            email: member.email,
+  // Employment details
+  employmentStatus: member.employment_status,
+  employmentStage: member.employment_stage,
+  employment_stage: member.employment_stage,
+  monthlySalary: member.monthly_salary,
+  commissionPercentage: member.commission_percentage,
 
-            phone: member.phone,
+  isActive: member.is_active,
+};
 
-            role: "employee",
-
-            employmentType:
-              member.employment_type,
-
-            employmentRoleId:
-              member.employment_role_id,
-
-            employmentRoleName:
-              employmentRole?.name || "",
-
-            isActive:
-              member.is_active,
-
-            authUserId:
-              member.auth_user_id,
-
-            monthlySalary:
-              member.monthly_salary,
-
-            commissionPercentage:
-              member.commission_percentage,
-          };
         });
 
       // -----------------------------------------------------
@@ -221,13 +220,8 @@ export default function AdminView() {
       // SAVE DATA
       // -----------------------------------------------------
 
-      setEmployees(
-        mappedEmployees
-      );
-
-      setUploadHistory(
-        history || []
-      );
+      setEmployees(mappedEmployees);
+      setUploadHistory(history || []);
     } catch (error) {
       console.error(
         "Admin refresh error:",
@@ -318,7 +312,8 @@ export default function AdminView() {
     if (
       id === "revenue" ||
       id === "performance" ||
-      id === "team"
+      id === "team" ||
+      id === "leaves"
     ) {
       setBusinessManagementOpen(true);
     }
@@ -342,7 +337,8 @@ export default function AdminView() {
   const businessManagementActive =
     view === "revenue" ||
     view === "performance" ||
-    view === "team";
+    view === "team" ||
+    view === "leaves";
 
   const reportsActive =
     view === "reports" ||
@@ -359,8 +355,7 @@ export default function AdminView() {
     badge,
     nested = false,
   }) => {
-    const active =
-      view === id;
+    const active = view === id;
 
     return (
       <button
@@ -388,9 +383,7 @@ export default function AdminView() {
             ? "#FFFFFF"
             : "#AEB8C5",
           fontSize: nested ? 12 : 13,
-          fontWeight: active
-            ? 600
-            : 500,
+          fontWeight: active ? 600 : 500,
           cursor: "pointer",
           textAlign: "left",
           transition:
@@ -403,8 +396,7 @@ export default function AdminView() {
               width: 5,
               height: 5,
               borderRadius: "50%",
-              background:
-                "currentColor",
+              background: "currentColor",
               flexShrink: 0,
             }}
           />
@@ -424,8 +416,7 @@ export default function AdminView() {
           <span
             style={{
               fontSize: 10,
-              background:
-                "rgba(255,255,255,0.12)",
+              background: "rgba(255,255,255,0.12)",
               padding: "2px 7px",
               borderRadius: 20,
               lineHeight: 1.3,
@@ -458,9 +449,7 @@ export default function AdminView() {
       >
         <button
           onClick={() =>
-            setOpen(
-              (prev) => !prev
-            )
+            setOpen((prev) => !prev)
           }
           style={{
             width: "100%",
@@ -478,9 +467,7 @@ export default function AdminView() {
               ? "#FFFFFF"
               : "#AEB8C5",
             fontSize: 13,
-            fontWeight: active
-              ? 600
-              : 500,
+            fontWeight: active ? 600 : 500,
             cursor: "pointer",
             textAlign: "left",
             transition:
@@ -500,8 +487,7 @@ export default function AdminView() {
           <ChevronDown
             size={15}
             style={{
-              transition:
-                "transform 0.2s ease",
+              transition: "transform 0.2s ease",
               transform: open
                 ? "rotate(180deg)"
                 : "rotate(0deg)",
@@ -529,8 +515,7 @@ export default function AdminView() {
       style={{
         minHeight: "100vh",
         display: "flex",
-        fontFamily:
-          "'IBM Plex Sans', sans-serif",
+        fontFamily: "'IBM Plex Sans', sans-serif",
         color: C.ink,
         background: C.bg,
       }}
@@ -546,8 +531,7 @@ export default function AdminView() {
           height: 62,
           background: "#0B1220",
           alignItems: "center",
-          justifyContent:
-            "space-between",
+          justifyContent: "space-between",
           padding: "0 16px",
           position: "fixed",
           top: 0,
@@ -568,14 +552,11 @@ export default function AdminView() {
 
         <button
           onClick={() =>
-            setMobileMenuOpen(
-              !mobileMenuOpen
-            )
+            setMobileMenuOpen(!mobileMenuOpen)
           }
           style={{
             border: "none",
-            background:
-              "transparent",
+            background: "transparent",
             color: "#fff",
             cursor: "pointer",
             padding: 6,
@@ -630,8 +611,7 @@ export default function AdminView() {
 
         <div
           style={{
-            padding:
-              "22px 20px 18px",
+            padding: "22px 20px 18px",
             borderBottom:
               "1px solid rgba(255,255,255,0.07)",
           }}
@@ -656,16 +636,13 @@ export default function AdminView() {
               marginTop: 9,
               fontWeight: 600,
               cursor: "pointer",
-              transition:
-                "color 0.2s ease",
+              transition: "color 0.2s ease",
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.color =
-                "#00B7FF";
+              e.currentTarget.style.color = "#00B7FF";
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.color =
-                "#94A3B8";
+              e.currentTarget.style.color = "#94A3B8";
             }}
           >
             TRACKING & MANAGEMENT SOLUTION
@@ -700,12 +677,9 @@ export default function AdminView() {
           {renderSection({
             label: "Client Management",
             icon: Users,
-            open:
-              clientManagementOpen,
-            setOpen:
-              setClientManagementOpen,
-            active:
-              clientManagementActive,
+            open: clientManagementOpen,
+            setOpen: setClientManagementOpen,
+            active: clientManagementActive,
             children: (
               <>
                 {renderNavItem({
@@ -718,12 +692,10 @@ export default function AdminView() {
                 {renderNavItem({
                   id: "closed-leads",
                   label: "Closed Leads",
-                  badge:
-                    leads.filter(
-                      (lead) =>
-                        lead.status ===
-                        "Closed"
-                    ).length,
+                  badge: leads.filter(
+                    (lead) =>
+                      lead.status === "Closed"
+                  ).length,
                   nested: true,
                 })}
               </>
@@ -737,12 +709,9 @@ export default function AdminView() {
           {renderSection({
             label: "Business Management",
             icon: BriefcaseBusiness,
-            open:
-              businessManagementOpen,
-            setOpen:
-              setBusinessManagementOpen,
-            active:
-              businessManagementActive,
+            open: businessManagementOpen,
+            setOpen: setBusinessManagementOpen,
+            active: businessManagementActive,
             children: (
               <>
                 {renderNavItem({
@@ -765,6 +734,14 @@ export default function AdminView() {
                   icon: UserCog,
                   nested: true,
                 })}
+
+                {/* NEW: LEAVES */}
+                {renderNavItem({
+                  id: "leaves",
+                  label: "Leaves",
+                  icon: CalendarDays,
+                  nested: true,
+                })}
               </>
             ),
           })}
@@ -785,13 +762,12 @@ export default function AdminView() {
 
           {renderNavItem({
             id: "upload",
-            label: "Import Excel",
+            label: "Add Leads",
             icon: UploadCloud,
           })}
 
           {/* =================================================
               REPORTS
-              Existing functionality preserved
           ================================================== */}
 
           <div
@@ -801,34 +777,25 @@ export default function AdminView() {
           >
             <button
               onClick={() =>
-                setReportsOpen(
-                  (prev) => !prev
-                )
+                setReportsOpen((prev) => !prev)
               }
               style={{
                 width: "100%",
                 display: "flex",
                 alignItems: "center",
                 gap: 11,
-                padding:
-                  "10px 12px",
-                marginBottom:
-                  reportsOpen ? 2 : 3,
+                padding: "10px 12px",
+                marginBottom: reportsOpen ? 2 : 3,
                 borderRadius: 8,
                 border: "none",
-                background:
-                  reportsActive
-                    ? "rgba(255,255,255,0.11)"
-                    : "transparent",
-                color:
-                  reportsActive
-                    ? "#FFFFFF"
-                    : "#AEB8C5",
+                background: reportsActive
+                  ? "rgba(255,255,255,0.11)"
+                  : "transparent",
+                color: reportsActive
+                  ? "#FFFFFF"
+                  : "#AEB8C5",
                 fontSize: 13,
-                fontWeight:
-                  reportsActive
-                    ? 600
-                    : 500,
+                fontWeight: reportsActive ? 600 : 500,
                 cursor: "pointer",
                 textAlign: "left",
               }}
@@ -846,12 +813,10 @@ export default function AdminView() {
               <ChevronDown
                 size={15}
                 style={{
-                  transition:
-                    "transform 0.2s ease",
-                  transform:
-                    reportsOpen
-                      ? "rotate(180deg)"
-                      : "rotate(0deg)",
+                  transition: "transform 0.2s ease",
+                  transform: reportsOpen
+                    ? "rotate(180deg)"
+                    : "rotate(0deg)",
                   opacity: 0.8,
                 }}
               />
@@ -872,18 +837,14 @@ export default function AdminView() {
 
                 <button
                   onClick={() =>
-                    handleViewChange(
-                      "reports"
-                    )
+                    handleViewChange("reports")
                   }
                   style={{
                     width: "100%",
                     display: "flex",
-                    alignItems:
-                      "center",
+                    alignItems: "center",
                     gap: 8,
-                    padding:
-                      "8px 10px",
+                    padding: "8px 10px",
                     marginBottom: 2,
                     borderRadius: 7,
                     border: "none",
@@ -897,47 +858,36 @@ export default function AdminView() {
                         : "#AEB8C5",
                     fontSize: 12,
                     fontWeight:
-                      view === "reports"
-                        ? 600
-                        : 500,
+                      view === "reports" ? 600 : 500,
                     cursor: "pointer",
-                    textAlign:
-                      "left",
+                    textAlign: "left",
                   }}
                 >
                   <span
                     style={{
                       width: 5,
                       height: 5,
-                      borderRadius:
-                        "50%",
-                      background:
-                        "currentColor",
+                      borderRadius: "50%",
+                      background: "currentColor",
                       flexShrink: 0,
                     }}
                   />
 
-                  <span>
-                    Meta Ads Reports
-                  </span>
+                  <span>Meta Ads Reports</span>
                 </button>
 
                 {/* GOOGLE ADS REPORTS */}
 
                 <button
                   onClick={() =>
-                    handleViewChange(
-                      "greports"
-                    )
+                    handleViewChange("greports")
                   }
                   style={{
                     width: "100%",
                     display: "flex",
-                    alignItems:
-                      "center",
+                    alignItems: "center",
                     gap: 8,
-                    padding:
-                      "8px 10px",
+                    padding: "8px 10px",
                     marginBottom: 2,
                     borderRadius: 7,
                     border: "none",
@@ -951,137 +901,100 @@ export default function AdminView() {
                         : "#AEB8C5",
                     fontSize: 12,
                     fontWeight:
-                      view === "greports"
-                        ? 600
-                        : 500,
+                      view === "greports" ? 600 : 500,
                     cursor: "pointer",
-                    textAlign:
-                      "left",
+                    textAlign: "left",
                   }}
                 >
                   <span
                     style={{
                       width: 5,
                       height: 5,
-                      borderRadius:
-                        "50%",
-                      background:
-                        "currentColor",
+                      borderRadius: "50%",
+                      background: "currentColor",
                       flexShrink: 0,
                     }}
                   />
 
-                  <span>
-                    Google Ads Reports
-                  </span>
+                  <span>Google Ads Reports</span>
                 </button>
               </div>
             )}
           </div>
         </div>
 
-        {/* =====================================================
-            ADMIN PROFILE
-        ====================================================== */}
+       
+       
+{/* ADMIN PROFILE */}
 
-        <div
-          style={{
-            padding: 12,
-            borderTop:
-              "1px solid rgba(255,255,255,0.07)",
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              alignItems:
-                "center",
-              gap: 9,
-              padding:
-                "8px 9px",
-              marginBottom: 5,
-            }}
-          >
-            <div
-              style={{
-                width: 31,
-                height: 31,
-                borderRadius:
-                  "50%",
-                background:
-                  "rgba(255,255,255,0.12)",
-                display: "flex",
-                alignItems:
-                  "center",
-                justifyContent:
-                  "center",
-                fontSize: 12,
-                fontWeight: 700,
-                color: "#fff",
-              }}
-            >
-              {(currentUser?.name ||
-                "A")
-                .charAt(0)
-                .toUpperCase()}
-            </div>
+<div
+  style={{
+    padding: 12,
+    borderTop: "1px solid rgba(255,255,255,0.07)",
+  }}
+>
+  <div
+    style={{
+      display: "flex",
+      alignItems: "center",
+      gap: 10,
+      padding: "8px 9px",
+      marginBottom: 5,
+    }}
+  >
+    <ProfilePicture
+      size={38}
+      editable={true}
+      onUpdated={refreshCurrentUser}
+    />
 
-            <div
-              style={{
-                minWidth: 0,
-              }}
-            >
-              <div
-                style={{
-                  fontSize: 12,
-                  fontWeight: 600,
-                  color: "#00A8FF",
-                  whiteSpace:
-                    "nowrap",
-                  overflow:
-                    "hidden",
-                  textOverflow:
-                    "ellipsis",
-                }}
-              >
-                {currentUser?.name}
-              </div>
+    <div style={{ minWidth: 0, flex: 1 }}>
+      <div
+        style={{
+          fontSize: 12,
+          fontWeight: 600,
+          color: "#00A8FF",
+          whiteSpace: "nowrap",
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+        }}
+      >
+        {currentUser?.name || "Administrator"}
+      </div>
 
-              <div
-                style={{
-                  fontSize: 10,
-                  color: "#7F8B9B",
-                }}
-              >
-                Administrator
-              </div>
-            </div>
-          </div>
+      <div
+        style={{
+          fontSize: 10,
+          color: "#7F8B9B",
+        }}
+      >
+        Administrator
+      </div>
+    </div>
+  </div>
 
-          <button
-            onClick={logout}
-            style={{
-              width: "100%",
-              display: "flex",
-              alignItems:
-                "center",
-              gap: 10,
-              padding:
-                "9px 12px",
-              borderRadius: 7,
-              border: "none",
-              background:
-                "transparent",
-              color: "#AEB8C5",
-              fontSize: 13,
-              cursor: "pointer",
-            }}
-          >
-            <LogOut size={16} />
+  <button
+    type="button"
+    onClick={logout}
+    style={{
+      width: "100%",
+      display: "flex",
+      alignItems: "center",
+      gap: 10,
+      padding: "9px 12px",
+      borderRadius: 7,
+      border: "none",
+      background: "transparent",
+      color: "#AEB8C5",
+      fontSize: 13,
+      cursor: "pointer",
+    }}
+  >
+    <LogOut size={16} />
+    Log out
+  </button>
+</div>
 
-            Log out
-          </button>
-        </div>
       </aside>
 
       {/* =====================================================
@@ -1094,8 +1007,7 @@ export default function AdminView() {
           flex: 1,
           minWidth: 0,
           marginLeft: 250,
-          padding:
-            "28px 32px",
+          padding: "28px 32px",
           overflowX: "hidden",
         }}
       >
@@ -1107,12 +1019,8 @@ export default function AdminView() {
           <Dashboard
             leads={leads}
             employees={employees}
-            uploadHistory={
-              uploadHistory
-            }
-            onNavigate={
-              handleViewChange
-            }
+            uploadHistory={uploadHistory}
+            onNavigate={handleViewChange}
           />
         )}
 
@@ -1129,23 +1037,13 @@ export default function AdminView() {
 
             <LeadsTable
               leads={leads}
-              employees={
-                employees
-              }
+              employees={employees}
               canReassign
               canDelete
-              onUpdateStatus={
-                handleUpdateStatus
-              }
-              onAssign={
-                handleAssign
-              }
-              onUpdatePackage={
-                handleUpdatePackage
-              }
-              onDelete={
-                handleDelete
-              }
+              onUpdateStatus={handleUpdateStatus}
+              onAssign={handleAssign}
+              onUpdatePackage={handleUpdatePackage}
+              onDelete={handleDelete}
             />
           </>
         )}
@@ -1157,12 +1055,8 @@ export default function AdminView() {
         {view === "closed-leads" && (
           <ClosedLeads
             leads={leads}
-            employees={
-              employees
-            }
-            currentUser={
-              currentUser
-            }
+            employees={employees}
+            currentUser={currentUser}
           />
         )}
 
@@ -1180,9 +1074,7 @@ export default function AdminView() {
 
         {view === "performance" && (
           <TeamPerformance
-            employees={
-              employees
-            }
+            employees={employees}
             leads={leads}
           />
         )}
@@ -1209,9 +1101,7 @@ export default function AdminView() {
 
         {view === "timesheets" && (
           <TimesheetAdmin
-            employees={
-              employees
-            }
+            employees={employees}
           />
         )}
 
@@ -1221,9 +1111,7 @@ export default function AdminView() {
 
         {view === "upload" && (
           <UploadExcel
-            onImported={
-              refresh
-            }
+            onImported={refresh}
           />
         )}
 
@@ -1233,14 +1121,19 @@ export default function AdminView() {
 
         {view === "team" && (
           <TeamManagement
-            employees={
-              employees
-            }
+            employees={employees}
             leads={leads}
-            onChanged={
-              refresh
-            }
+            onChanged={refresh}
           />
+        )}
+
+        {/* ---------------------------------------------------
+            LEAVES - PLACEHOLDER
+            Actual Leaves functionality will be added later.
+        ---------------------------------------------------- */}
+
+        {view === "leaves" && (
+        <AdminLeaveRequestsPage currentUser={currentUser} />
         )}
       </main>
 

@@ -35,20 +35,17 @@ export function AuthProvider({ children }) {
       return;
     }
 
-   setCurrentUser({
+   
+setCurrentUser({
   id: data.id,
   authUserId: data.auth_user_id,
   name: data.name,
   email: data.email,
   phone: data.phone,
-
-  // Existing backend role
   role: data.role,
-
-  // Employment details
   employmentType: data.employment_type,
   employmentRoleId: data.employment_role_id,
-
+  profilePicturePath: data.profile_picture_path || null,
   isActive: data.is_active,
 });
   }, []);
@@ -95,6 +92,20 @@ export function AuthProvider({ children }) {
       subscription.unsubscribe();
     };
   }, [loadCurrentUser]);
+
+
+  const refreshCurrentUser = useCallback(async () => {
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.getUser();
+
+  if (error) throw error;
+
+  if (user) {
+    await loadCurrentUser(user);
+  }
+}, [loadCurrentUser]);
 
   // Login with Supabase Auth
   const login = useCallback(
@@ -155,6 +166,7 @@ export function AuthProvider({ children }) {
         logout,
         authError,
         loading,
+        refreshCurrentUser,
       }}
     >
       {children}

@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 
 import { useAuth } from "./AuthContext";
+import ProfilePicture from "./ProfilePicture";
 
 import {
   C,
@@ -38,6 +39,8 @@ import {
 
 import EmployeeMonthlyTimesheet from "./EmployeeMonthlyTimesheet";
 import MetaAdsReports from "./MetaAdsReports";
+import EmployeeLeavesPage from "./EmployeeLeavesPage";
+
 
 import { supabase } from "./supabase";
 
@@ -49,10 +52,13 @@ import logo from "./assets/ruvigza-logo.png";
 ========================================================= */
 
 export default function MetaAdsDashboard() {
-  const {
-    currentUser,
-    logout,
-  } = useAuth();
+  
+const {
+  currentUser,
+  logout,
+  refreshCurrentUser,
+} = useAuth();
+
 
   const [view, setView] =
     useState("dashboard");
@@ -100,13 +106,11 @@ export default function MetaAdsDashboard() {
 
         /*
           IMPORTANT:
-
-          requirement_note is loaded from
+          requirement_note is now loaded from
           client_service_assignments.
 
-          completed_at is also loaded here so that
-          the dashboard keeps the exact completion
-          timestamp used by Service Performance.
+          This is the Requirement Note prepared by Admin
+          from the final Sales Close Note.
         */
 
         const {
@@ -188,37 +192,26 @@ export default function MetaAdsDashboard() {
           );
 
         /*
-          Load the employee names used by the
-          Sales Close Note.
+          Load the employee names used by the Sales Close Note.
+          The Admin Close Note shows the employee name, so Meta Ads
+          should show the same information instead of only the id.
         */
-
         const closedByIds = [
           ...(leads || [])
-            .map(
-              (lead) =>
-                lead.closed_by
-            )
+            .map((lead) => lead.closed_by)
             .filter(Boolean),
         ];
 
-        let closedByMap =
-          new Map();
+        let closedByMap = new Map();
 
-        if (
-          closedByIds.length > 0
-        ) {
+        if (closedByIds.length > 0) {
           const {
             data: closedByEmployees,
             error: closedByError,
           } = await supabase
             .from("team_members")
-            .select(
-              "id, name, email"
-            )
-            .in(
-              "id",
-              closedByIds
-            );
+            .select("id, name, email")
+            .in("id", closedByIds);
 
           if (closedByError) {
             console.warn(
@@ -226,20 +219,14 @@ export default function MetaAdsDashboard() {
               closedByError
             );
           } else {
-            closedByMap =
-              new Map(
-                (
-                  closedByEmployees ||
-                  []
-                ).map(
-                  (employee) => [
-                    String(
-                      employee.id
-                    ),
-                    employee,
-                  ]
-                )
-              );
+            closedByMap = new Map(
+              (closedByEmployees || []).map(
+                (employee) => [
+                  String(employee.id),
+                  employee,
+                ]
+              )
+            );
           }
         }
 
@@ -263,19 +250,12 @@ export default function MetaAdsDashboard() {
 
                 return {
                   ...sourceLead,
-
                   closedByName:
                     closedByMap.get(
-                      String(
-                        closedById ||
-                          ""
-                      )
+                      String(closedById || "")
                     )?.name ||
                     closedByMap.get(
-                      String(
-                        closedById ||
-                          ""
-                      )
+                      String(closedById || "")
                     )?.email ||
                     closedById ||
                     "",
@@ -284,12 +264,10 @@ export default function MetaAdsDashboard() {
 
               /*
                 Fallback:
-
-                If requirement_note was not stored
-                in assignment for an older client,
-                use lead Close Note requirement.
+                If requirement_note was not stored in the
+                assignment for an older client, use the
+                lead's Close Note requirement.
               */
-
               requirementNote:
                 assignment.requirement_note ||
                 leadMap.get(
@@ -302,16 +280,14 @@ export default function MetaAdsDashboard() {
                   String(
                     leadMap.get(
                       assignment.lead_id
-                    )?.closed_by ||
-                      ""
+                    )?.closed_by || ""
                   )
                 )?.name ||
                 closedByMap.get(
                   String(
                     leadMap.get(
                       assignment.lead_id
-                    )?.closed_by ||
-                      ""
+                    )?.closed_by || ""
                   )
                 )?.email ||
                 leadMap.get(
@@ -415,7 +391,7 @@ export default function MetaAdsDashboard() {
       setLiveWorkingSeconds(
         todayTimesheet?.working_minutes
           ? todayTimesheet.working_minutes *
-            60
+              60
           : 0
       );
 
@@ -583,25 +559,6 @@ export default function MetaAdsDashboard() {
           assignmentId
         );
 
-        /*
-          IMPORTANT COMPLETION LOGIC:
-
-          When status becomes Completed,
-          save the exact completion timestamp.
-
-          When status changes away from Completed,
-          remove completed_at.
-
-          This is required by Service Performance
-          to calculate Completed Leads and monthly
-          service incentive correctly.
-        */
-
-        const completedAt =
-          newStatus === "Completed"
-            ? new Date().toISOString()
-            : null;
-
         const {
           data,
           error,
@@ -610,11 +567,8 @@ export default function MetaAdsDashboard() {
             "client_service_assignments"
           )
           .update({
-            status:
-              newStatus,
-
-            completed_at:
-              completedAt,
+            status: newStatus,
+            completed_at: newStatus === "Completed" ? new Date().toISOString() : null,
           })
           .eq(
             "id",
@@ -653,7 +607,6 @@ export default function MetaAdsDashboard() {
                 assignmentId
                   ? {
                       ...client,
-
                       status:
                         data.status,
 
@@ -666,8 +619,7 @@ export default function MetaAdsDashboard() {
                       requirementNote:
                         data.requirement_note ||
                         client.requirementNote ||
-                        client.lead
-                          ?.close_requirement ||
+                        client.lead?.close_requirement ||
                         "",
                     }
                   : client
@@ -841,11 +793,16 @@ export default function MetaAdsDashboard() {
     },
 
     {
-    id: "reports",
-    label: "Meta Ads Reports",
-    icon: FileText,
-  },
+      id: "leaves",
+      label: "Leaves",
+      icon: CalendarDays,
+    },
 
+    {
+      id: "reports",
+      label: "Meta Ads Reports",
+      icon: FileText,
+    },
   ];
 
 
@@ -1013,24 +970,21 @@ export default function MetaAdsDashboard() {
           />
 
           <div
-  style={{
-    fontSize: 8,
-    letterSpacing: "1.4px",
-    color: "#94A3B8",
-    marginTop: 9,
-    fontWeight: 600,
-    cursor: "pointer",
-    transition: "color 0.2s ease",
-  }}
-  onMouseEnter={(e) => {
-    e.currentTarget.style.color = "#00B7FF";
-  }}
-  onMouseLeave={(e) => {
-    e.currentTarget.style.color = "#94A3B8";
-  }}
->
-  TRACKING & MANAGEMENT SOLUTION
-</div>
+            style={{
+              fontSize: 10,
+              letterSpacing:
+                "1.4px",
+
+              color:
+                "#94A3B8",
+
+              marginTop: 9,
+
+              fontWeight: 600,
+            }}
+          >
+            PERFORMANCE MARKETING CRM
+          </div>
 
           <button
             onClick={() =>
@@ -1213,153 +1167,84 @@ export default function MetaAdsDashboard() {
         </div>
 
 
-        {/* PROFILE */}
+       
+{/* PROFILE */}
 
-        <div
-          style={{
-            padding:
-              "14px 12px",
+<div
+  style={{
+    padding: "14px 12px",
+    borderTop: "1px solid rgba(255,255,255,0.06)",
+  }}
+>
+  <div
+    style={{
+      display: "flex",
+      alignItems: "center",
+      gap: 10,
+      padding: "8px 10px",
+      marginBottom: 5,
+    }}
+  >
+    <ProfilePicture
+      size={38}
+      editable={true}
+      onUpdated={refreshCurrentUser}
+    />
 
-            borderTop:
-              "1px solid rgba(255,255,255,0.06)",
-          }}
-        >
-          <div
-            style={{
-              display:
-                "flex",
+    <div
+      style={{
+        minWidth: 0,
+        flex: 1,
+      }}
+    >
+      <div
+        style={{
+          fontSize: 13,
+          fontWeight: 600,
+          color: "#F8FAFC",
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          whiteSpace: "nowrap",
+        }}
+      >
+        {currentUser?.name || "Employee"}
+      </div>
 
-              alignItems:
-                "center",
+      <div
+        style={{
+          fontSize: 11,
+          color: "#64748B",
+          marginTop: 2,
+        }}
+      >
+        Meta Ads Manager
+      </div>
+    </div>
+  </div>
 
-              gap: 10,
+  <button
+    type="button"
+    onClick={logout}
+    style={{
+      width: "100%",
+      display: "flex",
+      alignItems: "center",
+      gap: 10,
+      padding: "10px 12px",
+      borderRadius: 7,
+      border: "none",
+      background: "transparent",
+      color: "#94A3B8",
+      fontSize: 13,
+      cursor: "pointer",
+      textAlign: "left",
+    }}
+  >
+    <LogOut size={16} />
+    Log out
+  </button>
+</div>
 
-              padding:
-                "8px 10px",
-
-              marginBottom:
-                5,
-            }}
-          >
-            <div
-              style={{
-                width: 34,
-                height: 34,
-
-                borderRadius:
-                  "50%",
-
-                background:
-                  "#1E293B",
-
-                display:
-                  "flex",
-
-                alignItems:
-                  "center",
-
-                justifyContent:
-                  "center",
-              }}
-            >
-              <User
-                size={17}
-                color="#CBD5E1"
-              />
-            </div>
-
-            <div
-              style={{
-                minWidth:
-                  0,
-              }}
-            >
-              <div
-                style={{
-                  fontSize: 13,
-
-                  fontWeight:
-                    600,
-
-                  color:
-                    "#00A8FF",
-
-                  overflow:
-                    "hidden",
-
-                  textOverflow:
-                    "ellipsis",
-
-                  whiteSpace:
-                    "nowrap",
-                }}
-              >
-                {currentUser?.name ||
-                  "Employee"}
-              </div>
-
-              <div
-                style={{
-                  fontSize: 11,
-
-                  color:
-                    "#64748B",
-
-                  marginTop: 2,
-                }}
-              >
-                Meta Ads Manager
-              </div>
-            </div>
-          </div>
-
-          <button
-            onClick={
-              logout
-            }
-            style={{
-              width:
-                "100%",
-
-              display:
-                "flex",
-
-              alignItems:
-                "center",
-
-              gap: 10,
-
-              padding:
-                "10px 12px",
-
-              borderRadius:
-                7,
-
-              border:
-                "none",
-
-              background:
-                "transparent",
-
-              color:
-                "#94A3B8",
-
-              fontSize: 13,
-
-              cursor:
-                "pointer",
-
-              textAlign:
-                "left",
-            }}
-          >
-            <LogOut
-              size={16}
-            />
-
-            Log out
-          </button>
-        </div>
       </aside>
 
 
@@ -1828,20 +1713,6 @@ export default function MetaAdsDashboard() {
                   gap: 12,
                 }}
               >
-
-              <div
-                  className="meta-quick-actions"
-                  style={{
-                  display:
-                  "grid",
-
-                  gridTemplateColumns:
-                  "repeat(4, minmax(0, 1fr))",
-
-                   gap: 12,
-                  }}
-                 ></div>
-
                 <QuickAction
                   icon={
                     Users
@@ -2096,17 +1967,20 @@ export default function MetaAdsDashboard() {
           </>
         )}
 
+
         {/* =================================================
             META ADS REPORTS
-          ================================================= */}
+        ================================================= */}
 
-          {view ===
-             "reports" && (
-             <>
-            <MetaAdsReports />
-             </>
-        )}       
+        {view === "reports" && <MetaAdsReports />}
 
+        {/* =================================================
+            EMPLOYEE LEAVES
+        ================================================= */}
+
+        {view === "leaves" && (
+          <EmployeeLeavesPage currentUser={currentUser} />
+        )}
 
         {/* =================================================
             TIMESHEET
@@ -2570,6 +2444,7 @@ export default function MetaAdsDashboard() {
                       ...item.lead,
 
                       /*
+                        IMPORTANT:
                         Service assignment status वापरायचा.
                         Original sales lead status नाही.
                       */
@@ -2843,7 +2718,6 @@ function ClientTable({
                     item.id
                   }
                 >
-
                   {/* CLIENT */}
 
                   <td
@@ -2917,43 +2791,32 @@ function ClientTable({
                   <td
                     style={{
                       ...tableCellStyle,
-                      whiteSpace:
-                        "normal",
-                      minWidth:
-                        220,
+                      whiteSpace: "normal",
+                      minWidth: 220,
                     }}
                   >
                     {hasCloseNote(lead) ? (
                       <button
                         type="button"
                         onClick={() =>
-                          setSelectedRequirementLead(
-                            lead
-                          )
+                          setSelectedRequirementLead(lead)
                         }
-                        style={
-                          requirementButtonStyle
-                        }
+                        style={requirementButtonStyle}
                       >
-                        <FileText
-                          size={14}
-                        />
+                        <FileText size={14} />
                         View Requirement
                       </button>
                     ) : (
                       <span
                         style={{
-                          color:
-                            C.inkSoft,
-                          fontSize:
-                            12,
+                          color: C.inkSoft,
+                          fontSize: 12,
                         }}
                       >
                         No requirement note added.
                       </span>
                     )}
                   </td>
-
 
                   {/* STATUS */}
 
@@ -3081,14 +2944,8 @@ function ClientTable({
 
       {selectedRequirementLead && (
         <RequirementNoteModal
-          lead={
-            selectedRequirementLead
-          }
-          onClose={() =>
-            setSelectedRequirementLead(
-              null
-            )
-          }
+          lead={selectedRequirementLead}
+          onClose={() => setSelectedRequirementLead(null)}
         />
       )}
     </div>
@@ -3188,59 +3045,43 @@ function ClientOverviewRow({
         />
       </div>
 
-
       {/* REQUIREMENT NOTE */}
 
       {hasCloseNote(lead) && (
         <div
           style={{
-            display:
-              "flex",
-            alignItems:
-              "center",
-            justifyContent:
-              "space-between",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
             gap: 10,
             marginTop: 10,
-            padding:
-              "9px 10px",
+            padding: "9px 10px",
             borderRadius: 7,
-            background:
-              "#F8FAFC",
-            border:
-              `1px solid ${C.border}`,
+            background: "#F8FAFC",
+            border: `1px solid ${C.border}`,
           }}
         >
           <div
             style={{
-              display:
-                "flex",
-              alignItems:
-                "center",
+              display: "flex",
+              alignItems: "center",
               gap: 7,
               minWidth: 0,
             }}
           >
             <FileText
               size={14}
-              color={
-                C.primary
-              }
-              style={{
-                flexShrink: 0,
-              }}
+              color={C.primary}
+              style={{ flexShrink: 0 }}
             />
 
             <div
               style={{
                 fontSize: 10,
                 fontWeight: 700,
-                color:
-                  C.inkSoft,
-                textTransform:
-                  "uppercase",
-                letterSpacing:
-                  "0.5px",
+                color: C.inkSoft,
+                textTransform: "uppercase",
+                letterSpacing: "0.5px",
               }}
             >
               Requirement Note
@@ -3250,13 +3091,9 @@ function ClientOverviewRow({
           <button
             type="button"
             onClick={() =>
-              setSelectedRequirementLead(
-                lead
-              )
+              setSelectedRequirementLead(lead)
             }
-            style={
-              requirementButtonStyle
-            }
+            style={requirementButtonStyle}
           >
             View Requirement
           </button>
@@ -3265,14 +3102,8 @@ function ClientOverviewRow({
 
       {selectedRequirementLead && (
         <RequirementNoteModal
-          lead={
-            selectedRequirementLead
-          }
-          onClose={() =>
-            setSelectedRequirementLead(
-              null
-            )
-          }
+          lead={selectedRequirementLead}
+          onClose={() => setSelectedRequirementLead(null)}
         />
       )}
     </div>
@@ -3295,21 +3126,15 @@ function RequirementNoteModal({
       style={{
         position: "fixed",
         inset: 0,
-        background:
-          "rgba(0,0,0,0.45)",
+        background: "rgba(0,0,0,0.45)",
         display: "flex",
-        alignItems:
-          "center",
-        justifyContent:
-          "center",
+        alignItems: "center",
+        justifyContent: "center",
         zIndex: 3000,
         padding: 20,
       }}
       onMouseDown={(event) => {
-        if (
-          event.target ===
-          event.currentTarget
-        ) {
+        if (event.target === event.currentTarget) {
           onClose();
         }
       }}
@@ -3322,21 +3147,16 @@ function RequirementNoteModal({
           overflowY: "auto",
           background: "#fff",
           borderRadius: 12,
-          boxShadow:
-            "0 20px 50px rgba(0,0,0,0.2)",
+          boxShadow: "0 20px 50px rgba(0,0,0,0.2)",
         }}
       >
         <div
           style={{
             display: "flex",
-            alignItems:
-              "center",
-            justifyContent:
-              "space-between",
-            padding:
-              "18px 20px",
-            borderBottom:
-              `1px solid ${C.border}`,
+            alignItems: "center",
+            justifyContent: "space-between",
+            padding: "18px 20px",
+            borderBottom: `1px solid ${C.border}`,
           }}
         >
           <div>
@@ -3352,44 +3172,30 @@ function RequirementNoteModal({
             <div
               style={{
                 fontSize: 12,
-                color:
-                  C.inkSoft,
+                color: C.inkSoft,
                 marginTop: 4,
               }}
             >
-              {getClientName(
-                lead
-              )}
+              {getClientName(lead)}
             </div>
           </div>
 
           <button
             type="button"
-            onClick={
-              onClose
-            }
+            onClick={onClose}
             style={{
               width: 34,
               height: 34,
-              display:
-                "flex",
-              alignItems:
-                "center",
-              justifyContent:
-                "center",
-              border:
-                "none",
-              borderRadius:
-                7,
-              background:
-                C.borderSoft,
-              cursor:
-                "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              border: "none",
+              borderRadius: 7,
+              background: C.borderSoft,
+              cursor: "pointer",
             }}
           >
-            <X
-              size={18}
-            />
+            <X size={18} />
           </button>
         </div>
 
@@ -3400,53 +3206,38 @@ function RequirementNoteModal({
         >
           <CloseNoteRow
             label="Requirement"
-            value={
-              lead.close_requirement
-            }
+            value={lead.close_requirement}
             multiline
           />
 
           <CloseNoteRow
             label="Service"
-            value={formatCloseService(
-              lead.close_service
-            )}
+            value={formatCloseService(lead.close_service)}
           />
 
           <CloseNoteRow
             label="Budget"
-            value={formatBudget(
-              lead.close_budget,
-              lead.close_budget_type
-            )}
+            value={formatBudget(lead.close_budget, lead.close_budget_type)}
           />
 
           <CloseNoteRow
             label="Budget Type"
-            value={formatBudgetType(
-              lead.close_budget_type
-            )}
+            value={formatBudgetType(lead.close_budget_type)}
           />
 
           <CloseNoteRow
             label="From Date"
-            value={formatDate(
-              lead.close_from_date
-            )}
+            value={formatDate(lead.close_from_date)}
           />
 
           <CloseNoteRow
             label="To Date"
-            value={formatDate(
-              lead.close_to_date
-            )}
+            value={formatDate(lead.close_to_date)}
           />
 
           <CloseNoteRow
             label="Remark"
-            value={
-              lead.close_remark
-            }
+            value={lead.close_remark}
             multiline
             optional
           />
@@ -3454,59 +3245,35 @@ function RequirementNoteModal({
           <div
             style={{
               height: 1,
-              background:
-                C.border,
-              margin:
-                "18px 0",
+              background: C.border,
+              margin: "18px 0",
             }}
           />
 
           <div
             style={{
-              display:
-                "grid",
-              gridTemplateColumns:
-                "1fr 1fr",
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
               gap: 14,
             }}
           >
             <div>
-              <div
-                style={
-                  closeNoteLabelStyle
-                }
-              >
+              <div style={closeNoteLabelStyle}>
                 Closed By
               </div>
 
-              <div
-                style={
-                  closeNoteValueStyle
-                }
-              >
-                {lead.closedByName ||
-                  lead.closed_by ||
-                  "—"}
+              <div style={closeNoteValueStyle}>
+                {lead.closedByName || lead.closed_by || "—"}
               </div>
             </div>
 
             <div>
-              <div
-                style={
-                  closeNoteLabelStyle
-                }
-              >
+              <div style={closeNoteLabelStyle}>
                 Closed Date
               </div>
 
-              <div
-                style={
-                  closeNoteValueStyle
-                }
-              >
-                {formatDateTime(
-                  lead.closed_at
-                )}
+              <div style={closeNoteValueStyle}>
+                {formatDateTime(lead.closed_at)}
               </div>
             </div>
           </div>
@@ -3514,33 +3281,22 @@ function RequirementNoteModal({
 
         <div
           style={{
-            display:
-              "flex",
-            justifyContent:
-              "flex-end",
-            padding:
-              "0 20px 20px",
+            display: "flex",
+            justifyContent: "flex-end",
+            padding: "0 20px 20px",
           }}
         >
           <button
             type="button"
-            onClick={
-              onClose
-            }
+            onClick={onClose}
             style={{
-              padding:
-                "9px 16px",
-              border:
-                `1px solid ${C.border}`,
-              borderRadius:
-                7,
-              background:
-                "#fff",
-              cursor:
-                "pointer",
+              padding: "9px 16px",
+              border: `1px solid ${C.border}`,
+              borderRadius: 7,
+              background: "#fff",
+              cursor: "pointer",
               fontSize: 12,
-              fontWeight:
-                600,
+              fontWeight: 600,
             }}
           >
             Close
@@ -3564,19 +3320,14 @@ function CloseNoteRow({
         marginBottom: 16,
       }}
     >
-      <div
-        style={
-          closeNoteLabelStyle
-        }
-      >
+      <div style={closeNoteLabelStyle}>
         {label}
 
         {optional && (
           <span
             style={{
               fontWeight: 400,
-              color:
-                C.inkSoft,
+              color: C.inkSoft,
               marginLeft: 5,
             }}
           >
@@ -3588,14 +3339,8 @@ function CloseNoteRow({
       <div
         style={{
           ...closeNoteValueStyle,
-          whiteSpace:
-            multiline
-              ? "pre-wrap"
-              : "normal",
-          minHeight:
-            multiline
-              ? 40
-              : "auto",
+          whiteSpace: multiline ? "pre-wrap" : "normal",
+          minHeight: multiline ? 40 : "auto",
         }}
       >
         {value || "—"}
@@ -3852,27 +3597,19 @@ function formatDateTime(
 ) {
   if (!value) return "—";
 
-  const date =
-    new Date(value);
+  const date = new Date(value);
 
-  if (
-    Number.isNaN(
-      date.getTime()
-    )
-  ) {
+  if (Number.isNaN(date.getTime())) {
     return "—";
   }
 
-  return date.toLocaleString(
-    "en-IN",
-    {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    }
-  );
+  return date.toLocaleString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
 
@@ -3881,19 +3618,8 @@ function formatCloseService(
 ) {
   if (!value) return "—";
 
-  if (
-    value ===
-    "google_ads"
-  ) {
-    return "Google Ads";
-  }
-
-  if (
-    value ===
-    "meta_ads"
-  ) {
-    return "Meta Ads";
-  }
+  if (value === "google_ads") return "Google Ads";
+  if (value === "meta_ads") return "Meta Ads";
 
   return value;
 }
@@ -3904,19 +3630,8 @@ function formatBudgetType(
 ) {
   if (!value) return "—";
 
-  if (
-    value ===
-    "daily"
-  ) {
-    return "Daily";
-  }
-
-  if (
-    value ===
-    "monthly"
-  ) {
-    return "Monthly";
-  }
+  if (value === "daily") return "Daily";
+  if (value === "monthly") return "Monthly";
 
   return value;
 }
@@ -3926,30 +3641,17 @@ function formatBudget(
   budget,
   budgetType
 ) {
-  if (
-    budget === null ||
-    budget === undefined ||
-    budget === ""
-  ) {
+  if (budget === null || budget === undefined || budget === "") {
     return "—";
   }
 
-  const number =
-    Number(budget);
+  const number = Number(budget);
 
-  if (
-    Number.isNaN(number)
-  ) {
-    return String(
-      budget
-    );
+  if (Number.isNaN(number)) {
+    return String(budget);
   }
 
-  return `₹${number.toLocaleString(
-    "en-IN"
-  )} / ${formatBudgetType(
-    budgetType
-  )}`;
+  return `₹${number.toLocaleString("en-IN")} / ${formatBudgetType(budgetType)}`;
 }
 
 
@@ -3972,80 +3674,40 @@ function hasCloseNote(
 }
 
 
+
 const requirementButtonStyle = {
-  display:
-    "inline-flex",
-
-  alignItems:
-    "center",
-
+  display: "inline-flex",
+  alignItems: "center",
   gap: 6,
-
-  padding:
-    "7px 11px",
-
-  border:
-    `1px solid ${C.border}`,
-
-  borderRadius:
-    7,
-
-  background:
-    "#fff",
-
-  color:
-    C.ink,
-
+  padding: "7px 11px",
+  border: `1px solid ${C.border}`,
+  borderRadius: 7,
+  background: "#fff",
+  color: C.ink,
   fontSize: 11,
-
-  fontWeight:
-    650,
-
-  cursor:
-    "pointer",
+  fontWeight: 650,
+  cursor: "pointer",
 };
 
 
 const closeNoteLabelStyle = {
   fontSize: 11,
-
-  fontWeight:
-    700,
-
-  color:
-    C.inkSoft,
-
-  marginBottom:
-    6,
-
-  textTransform:
-    "uppercase",
-
-  letterSpacing:
-    "0.03em",
+  fontWeight: 700,
+  color: C.inkSoft,
+  marginBottom: 6,
+  textTransform: "uppercase",
+  letterSpacing: "0.03em",
 };
 
 
 const closeNoteValueStyle = {
-  padding:
-    "10px 12px",
-
-  border:
-    `1px solid ${C.border}`,
-
-  borderRadius:
-    7,
-
-  background:
-    "#F8FAFC",
-
+  padding: "10px 12px",
+  border: `1px solid ${C.border}`,
+  borderRadius: 7,
+  background: "#F8FAFC",
   fontSize: 13,
-
-  lineHeight:
-    1.5,
-
-  color:
-    C.ink,
+  lineHeight: 1.5,
+  color: C.ink,
 };
 
 

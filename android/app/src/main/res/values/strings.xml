@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">RUVIGZA CRM</string>
+    <string name="title_activity_main">RUVIGZA CRM</string>
+    <string name="package_name">in.ruvigza.crm</string>
+    <string name="custom_url_scheme">in.ruvigza.crm</string>
+</resources>

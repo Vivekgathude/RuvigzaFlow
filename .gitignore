@@ -16,3 +16,14 @@ dist/
 npm-debug.log*
 yarn-debug.log*
 pnpm-debug.log*
+
+# Android / Capacitor generated files
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+.gradle/
+local.properties
+
+# Android IDE local files
+.idea/
