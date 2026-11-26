@@ -76,6 +76,18 @@ const HEADER_GUESSES = {
     "stage",
     "lead status",
   ],
+
+  email: [
+  "email",
+  "email address",
+  "e-mail",
+],
+
+packageTier: [
+  "package",
+  "package tier",
+  "plan",
+],
 };
 
 export function guessMapping(headers) {
@@ -87,6 +99,8 @@ export function guessMapping(headers) {
     website: "",
     source: "",
     status: "",
+    email: "",
+    packageTier: "",
   };
 
   const lower = headers.map((h) => ({
@@ -193,5 +207,13 @@ export function applyMapping(rawRows, mapping) {
       )
         ? String(row[mapping.status]).trim()
         : "",
+
+        email: mapping.email
+        ? String(row[mapping.email] || "").trim()
+          : "",
+
+        packageTier: mapping.packageTier
+         ? String(row[mapping.packageTier] || "").trim()
+         : "",
   }));
 }

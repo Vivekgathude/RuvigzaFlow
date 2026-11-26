@@ -464,7 +464,28 @@ function normalizeEmail(email) {
     .toLowerCase();
 }
 
+function normalizeStatus(status) {
+  const value = String(status || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ");
 
+  const statusMap = {
+    "new": "New",
+    "contacted": "Contacted",
+    "follow up": "Follow Up",
+    "followup": "Follow Up",
+    "interested": "Interested",
+    "sent proposal": "Sent Proposal",
+    "proposal sent": "Sent Proposal",
+    "onboarded": "Onboarded",
+    "not interested": "Not Interested",
+    "closed": "Closed",
+  };
+
+  return statusMap[value] || "New";
+}
 // =====================================================
 // Import / Merge Leads
 // =====================================================
