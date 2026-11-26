@@ -203,7 +203,18 @@ export async function deleteLead(leadId) {
   leads = leads.filter((l) => l.id !== leadId);
   return true;
 }
+export async function deleteLeads(ids) {
+  await delay();
 
+  if (!Array.isArray(ids) || ids.length === 0) {
+    return true;
+  }
+
+  const selectedIds = new Set(ids);
+  leads = leads.filter((l) => !selectedIds.has(l.id));
+
+  return true;
+}
 export async function assignLead(leadId, employeeId) {
   return updateLead(leadId, { assignedEmployeeId: employeeId });
 }

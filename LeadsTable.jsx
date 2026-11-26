@@ -1,7 +1,8 @@
 import React, { useMemo, useState } from "react";
 import { Search, Trash2, ExternalLink, Image as ImageIcon,
   FileAudio,
-  X, } from "lucide-react";
+  X, MessageCircle,
+  Phone, } from "lucide-react";
 import { supabase } from "./supabase";
 import { C, STATUS_COLOR, Panel, EmptyNote, inputStyle } from "./ui";
 import { STATUS_OPTIONS } from "./excelUtils";
@@ -49,11 +50,122 @@ export default function LeadsTable({
   onUpdatePackage,
   onAssign,
   onDelete,
+  onBulkDelete,
 }) {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
   const [employeeFilter, setEmployeeFilter] = useState("All");
+  const [selectedLeadIds, setSelectedLeadIds] = useState([]);
+  // =========================================================
+// CONTACT ACTION MODAL
+// =========================================================
+const [contactModal, setContactModal] = useState(null);
 
+
+// =========================================================
+// CONTACT ACTION HANDLERS
+// =========================================================
+const getContactPhone = (phone) => {
+  let digits = String(phone || "").replace(/\D/g, "");
+
+  // Remove India's country code
+  if (digits.length === 12 && digits.startsWith("91")) {
+    digits = digits.slice(2);
+  }
+
+  // Ignore leading zero in 11-digit Indian numbers
+  if (digits.length === 11 && digits.startsWith("0")) {
+    digits = digits.slice(1);
+  }
+
+  return digits;
+};
+
+const handleWhatsAppChat = () => {
+  if (!contactModal?.phone) return;
+
+  const phone = getContactPhone(contactModal.phone);
+
+  if (phone.length !== 10) {
+    alert("Invalid contact number.");
+    return;
+  }
+
+  window.open(
+    `https://wa.me/91${phone}`,
+    "_blank",
+    "noopener,noreferrer"
+  );
+
+  setContactModal(null);
+};
+
+const handleMakeCall = () => {
+  if (!contactModal?.phone) return;
+
+  const phone = getContactPhone(contactModal.phone);
+
+  if (phone.length !== 10) {
+    alert("Invalid contact number.");
+    return;
+  }
+
+  window.location.href = `tel:+91${phone}`;
+
+  setContactModal(null);
+};
+  // =========================================================
+// DUPLICATE LEADS DETECTION (ADMIN ONLY)
+// =========================================================
+const [showDuplicateModal, setShowDuplicateModal] = useState(false);
+const [deletingDuplicateId, setDeletingDuplicateId] = useState(null);
+
+const normalizeDuplicateName = (name) =>
+  String(name || "")
+    .toLowerCase()
+    .normalize("NFKC")
+    .replace(/[^\p{L}\p{N}]/gu, "");
+
+const normalizeDuplicatePhone = (phone) => {
+  let digits = String(phone || "").replace(/\D/g, "");
+
+  if (digits.length === 12 && digits.startsWith("91")) {
+    digits = digits.slice(2);
+  }
+
+  return digits;
+};
+
+const duplicateGroups = useMemo(() => {
+  if (!canDelete) return [];
+
+  const groups = new Map();
+
+  leads.forEach((lead) => {
+    const name = normalizeDuplicateName(lead.name);
+    const phone = normalizeDuplicatePhone(lead.phone);
+
+    if (!name || !phone || phone.length !== 10) return;
+
+    const key = `${name}_${phone}`;
+
+    if (!groups.has(key)) {
+      groups.set(key, []);
+    }
+
+    groups.get(key).push(lead);
+  });
+
+  return Array.from(groups.values())
+    .filter((group) => group.length > 1)
+    .map((group) =>
+      [...group].sort(
+        (a, b) =>
+          new Date(a.createdAt || 0) -
+          new Date(b.createdAt || 0)
+      )
+    );
+}, [leads, canDelete]);
   // =========================================================
   // CUSTOM PACKAGE AMOUNTS
   // =========================================================
@@ -172,6 +284,38 @@ const handleOpenEvidence = async (lead) => {
     canReassign,
   ]);
 
+  // =====================================================
+// BULK LEAD SELECTION
+// =====================================================
+
+const handleSelectAllVisible = () => {
+  const visibleIds = filtered.map((lead) => lead.id);
+
+  const allSelected =
+    visibleIds.length > 0 &&
+    visibleIds.every((id) => selectedLeadIds.includes(id));
+
+  if (allSelected) {
+    // Deselect only visible leads
+    setSelectedLeadIds((prev) =>
+      prev.filter((id) => !visibleIds.includes(id))
+    );
+  } else {
+    // Select visible leads without removing hidden selections
+    setSelectedLeadIds((prev) =>
+      [...new Set([...prev, ...visibleIds])]
+    );
+  }
+};
+
+const handleSelectLead = (id) => {
+  setSelectedLeadIds((prev) =>
+    prev.includes(id)
+      ? prev.filter((selectedId) => selectedId !== id)
+      : [...prev, id]
+  );
+};
+
   return (
     <div>
       {/* =====================================================
@@ -283,6 +427,48 @@ const handleOpenEvidence = async (lead) => {
             ))}
           </select>
         </div>
+        {/* ================= BULK DELETE ================= */}
+{canDelete && (
+  <button
+    type="button"
+    disabled={selectedLeadIds.length === 0}
+    onClick={async () => {
+      const success = await onBulkDelete(selectedLeadIds);
+
+      if (success) {
+        setSelectedLeadIds([]);
+      }
+    }}
+    style={{
+      padding: "9px 14px",
+      borderRadius: 8,
+      border: "1px solid #dc2626",
+      background:
+        selectedLeadIds.length > 0
+          ? "#dc2626"
+          : "transparent",
+      color:
+        selectedLeadIds.length > 0
+          ? "#ffffff"
+          : C.inkFaint,
+      cursor:
+        selectedLeadIds.length > 0
+          ? "pointer"
+          : "not-allowed",
+      fontWeight: 600,
+      whiteSpace: "nowrap",
+    }}
+  >
+    <Trash2
+      size={14}
+      style={{
+        verticalAlign: "middle",
+        marginRight: 6,
+      }}
+    />
+    Delete Selected ({selectedLeadIds.length})
+  </button>
+)}
       </div>
 
       {/* =====================================================
@@ -319,6 +505,27 @@ const handleOpenEvidence = async (lead) => {
                     textAlign: "left",
                   }}
                 >
+                {canDelete && (
+  <th
+    style={{
+      padding: "8px",
+      borderBottom: `1px solid ${C.border}`,
+    }}
+  >
+    <input
+      type="checkbox"
+      checked={
+        filtered.length > 0 &&
+        filtered.every((lead) =>
+          selectedLeadIds.includes(lead.id)
+        )
+      }
+      onChange={handleSelectAllVisible}
+      disabled={filtered.length === 0}
+      title="Select all visible leads"
+    />
+  </th>
+)}
                   {[
                     "Name",
                     "Category",
@@ -358,6 +565,21 @@ const handleOpenEvidence = async (lead) => {
                       borderBottom: `1px solid ${C.borderSoft}`,
                     }}
                   >
+                  {canDelete && (
+  <td
+    style={{
+      padding: "9px 8px",
+      textAlign: "center",
+    }}
+  >
+    <input
+      type="checkbox"
+      checked={selectedLeadIds.includes(l.id)}
+      onChange={() => handleSelectLead(l.id)}
+      aria-label={`Select ${l.name || "lead"}`}
+    />
+  </td>
+)}
                     {/* ================= NAME ================= */}
                     <td
                       style={{
@@ -393,17 +615,36 @@ const handleOpenEvidence = async (lead) => {
                     </td>
 
                     {/* ================= CONTACT ================= */}
-                    <td
-                      style={{
-                        padding: "9px 8px",
-                        color: C.inkSoft,
-                        fontFamily: "'IBM Plex Mono', monospace",
-                        fontSize: 12,
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      {l.phone || "—"}
-                    </td>
+                   <td
+  style={{
+    padding: "9px 8px",
+    color: C.inkSoft,
+    fontFamily: "'IBM Plex Mono', monospace",
+    fontSize: 12,
+    whiteSpace: "nowrap",
+  }}
+>
+  {l.phone ? (
+    <button
+      type="button"
+      onClick={() => setContactModal(l)}
+      title="Contact options"
+      style={{
+        border: "none",
+        background: "transparent",
+        color: C.primary,
+        cursor: "pointer",
+        font: "inherit",
+        textDecoration: "underline",
+        padding: 0,
+      }}
+    >
+      {l.phone}
+    </button>
+  ) : (
+    "—"
+  )}
+</td>
 
                     {/* ================= WEBSITE ================= */}
                     <td
@@ -893,6 +1134,134 @@ const handleOpenEvidence = async (lead) => {
       {/* =====================================================
     CONTACT EVIDENCE PREVIEW MODAL
 ===================================================== */}
+{/* =====================================================
+    CONTACT ACTION MODAL
+===================================================== */}
+
+{contactModal && (
+  <div
+    onClick={() => setContactModal(null)}
+    style={{
+      position: "fixed",
+      inset: 0,
+      zIndex: 11000,
+      background: "rgba(0,0,0,0.65)",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      padding: 16,
+    }}
+  >
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Contact options"
+      onClick={(e) => e.stopPropagation()}
+      style={{
+        width: "100%",
+        maxWidth: 360,
+        background: C.panel || "#fff",
+        color: C.ink,
+        borderRadius: 14,
+        padding: 22,
+        boxSizing: "border-box",
+        boxShadow: "0 20px 60px rgba(0,0,0,0.3)",
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginBottom: 8,
+        }}
+      >
+        <strong style={{ fontSize: 17 }}>
+          Contact Options
+        </strong>
+
+        <button
+          type="button"
+          onClick={() => setContactModal(null)}
+          style={{
+            border: "none",
+            background: "transparent",
+            color: C.ink,
+            cursor: "pointer",
+            padding: 5,
+          }}
+        >
+          <X size={20} />
+        </button>
+      </div>
+
+      <div
+        style={{
+          fontSize: 13,
+          color: C.inkSoft,
+          marginBottom: 20,
+        }}
+      >
+        {contactModal.name}
+        <div
+          style={{
+            fontFamily: "monospace",
+            marginTop: 5,
+          }}
+        >
+          {contactModal.phone}
+        </div>
+      </div>
+
+      <button
+        type="button"
+        onClick={handleWhatsAppChat}
+        style={{
+          width: "100%",
+          padding: 14,
+          border: "none",
+          borderRadius: 9,
+          background: "#16A34A",
+          color: "#fff",
+          fontWeight: 600,
+          fontSize: 14,
+          cursor: "pointer",
+          marginBottom: 12,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 9,
+        }}
+      >
+        <MessageCircle size={18} />
+        Chat on WhatsApp
+      </button>
+
+      <button
+        type="button"
+        onClick={handleMakeCall}
+        style={{
+          width: "100%",
+          padding: 14,
+          border: "none",
+          borderRadius: 9,
+          background: C.primary,
+          color: "#fff",
+          fontWeight: 600,
+          fontSize: 14,
+          cursor: "pointer",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 9,
+        }}
+      >
+        <Phone size={18} />
+        Make a Call
+      </button>
+    </div>
+  </div>
+)}
 
 {evidenceError && (
   <div

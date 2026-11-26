@@ -41,6 +41,7 @@ import ProfilePicture from "./ProfilePicture";
 import {
   getAllLeads,
   deleteLead,
+  deleteLeads,
   updateLead,
   assignLead,
 } from "./leadsDatabase";
@@ -292,6 +293,31 @@ return {
 
     await refresh();
   };
+  
+const handleBulkDelete = async (ids) => {
+  if (!Array.isArray(ids) || ids.length === 0) {
+    return false;
+  }
+
+  const confirmed = window.confirm(
+    `Are you sure you want to permanently delete ${ids.length} selected leads?`
+  );
+
+  if (!confirmed) return false;
+
+  try {
+    await deleteLeads(ids);
+    await refresh();
+
+    alert(`${ids.length} leads deleted successfully.`);
+    return true;
+  } catch (error) {
+    console.error("Bulk delete error:", error);
+    alert("Unable to delete selected leads.");
+    return false;
+  }
+};
+
 
   // ---------------------------------------------------------
   // VIEW CHANGE
@@ -1044,6 +1070,7 @@ return {
               onAssign={handleAssign}
               onUpdatePackage={handleUpdatePackage}
               onDelete={handleDelete}
+              onBulkDelete={handleBulkDelete}
             />
           </>
         )}

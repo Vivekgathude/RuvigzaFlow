@@ -411,7 +411,26 @@ export async function deleteLead(id) {
   return true;
 }
 
+// =====================================================
+// Delete multiple leads
+// =====================================================
+export async function deleteLeads(ids) {
+  if (!Array.isArray(ids) || ids.length === 0) {
+    return true;
+  }
 
+  const { error } = await supabase
+    .from("leads")
+    .delete()
+    .in("id", ids);
+
+  if (error) {
+    console.error("Bulk delete leads error:", error);
+    throw error;
+  }
+
+  return true;
+}
 // =====================================================
 // Assign lead to employee
 // =====================================================
